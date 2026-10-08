@@ -1,0 +1,72 @@
+{
+  "accuracy": 1.0,
+  "precision_macro": 1.0,
+  "recall_macro": 1.0,
+  "f1_macro": 1.0,
+  "classification_report": {
+    "Medium": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 80.0
+    },
+    "Strong": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 80.0
+    },
+    "Weak": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 80.0
+    },
+    "accuracy": 1.0,
+    "macro avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 240.0
+    },
+    "weighted avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 240.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      80,
+      0,
+      0
+    ],
+    [
+      0,
+      80,
+      0
+    ],
+    [
+      0,
+      0,
+      80
+    ]
+  ],
+  "classes": [
+    "Medium",
+    "Strong",
+    "Weak"
+  ],
+  "feature_importances": {
+    "success_rate": 0.4023,
+    "solved": 0.0989,
+    "failed": 0.0003,
+    "avg_attempts": 0.1457,
+    "avg_time": 0.1226,
+    "difficulty_score": 0.001,
+    "recent_success_rate": 0.2291
+  },
+  "n_train": 960,
+  "n_test": 240
+}

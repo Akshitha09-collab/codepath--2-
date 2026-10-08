@@ -1,0 +1,23 @@
+problem_id,title,topic,difficulty,status,attempts,time_taken,date
+1,Two Sum,Arrays,Easy,Solved,1,12,2026-08-01
+2,Best Time to Buy and Sell Stock,Arrays,Easy,Solved,1,10,2026-08-01
+3,Product of Array Except Self,Arrays,Medium,Solved,1,20,2026-08-02
+4,Maximum Subarray,Arrays,Easy,Solved,2,15,2026-08-02
+5,Rotate Array,Arrays,Medium,Solved,1,18,2026-08-03
+6,Valid Anagram,Strings,Easy,Solved,1,8,2026-08-03
+7,Longest Substring Without Repeating Characters,Strings,Medium,Solved,2,22,2026-08-04
+8,Group Anagrams,Strings,Medium,Solved,1,19,2026-08-04
+9,Valid Parentheses,Strings,Easy,Solved,1,7,2026-08-05
+10,Binary Tree Inorder Traversal,Trees,Easy,Solved,2,25,2026-08-05
+11,Binary Tree Level Order Traversal,Trees,Medium,Failed,3,40,2026-08-06
+12,Maximum Depth of Binary Tree,Trees,Easy,Solved,1,14,2026-08-06
+13,Validate Binary Search Tree,Trees,Medium,Failed,3,45,2026-08-07
+14,Symmetric Tree,Trees,Easy,Solved,2,20,2026-08-07
+15,Number of Islands,Graphs,Medium,Failed,3,40,2026-08-08
+16,Course Schedule,Graphs,Medium,Failed,4,50,2026-08-09
+17,Clone Graph,Graphs,Medium,Failed,3,42,2026-08-10
+18,Graph Valid Tree,Graphs,Easy,Failed,2,30,2026-08-11
+19,0/1 Knapsack,Dynamic Programming,Hard,Failed,5,60,2026-08-12
+20,Climbing Stairs,Dynamic Programming,Easy,Failed,3,30,2026-08-13
+21,Coin Change,Dynamic Programming,Medium,Failed,4,55,2026-08-14
+22,House Robber,Dynamic Programming,Medium,Failed,3,48,2026-08-15
