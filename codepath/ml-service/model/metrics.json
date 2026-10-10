@@ -59,13 +59,13 @@
     "Weak"
   ],
   "feature_importances": {
-    "success_rate": 0.4023,
-    "solved": 0.0989,
+    "success_rate": 0.3882,
+    "solved": 0.1082,
     "failed": 0.0003,
-    "avg_attempts": 0.1457,
-    "avg_time": 0.1226,
-    "difficulty_score": 0.001,
-    "recent_success_rate": 0.2291
+    "avg_attempts": 0.1405,
+    "avg_time": 0.125,
+    "difficulty_score": 0.0012,
+    "recent_success_rate": 0.2366
   },
   "n_train": 960,
   "n_test": 240

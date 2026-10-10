@@ -1,10 +1,9 @@
+
 /**
  * controllers/recommendationController.js
- * ------------------------------------------
- * Generates and persists personalized recommendations by delegating the
- * actual ML/recommendation logic to the Python service, then saving the
- * result into the Recommendations collection so the frontend has a
- * consistent, dynamic (never hardcoded) source of truth.
+ * ----------------------------------------
+ * Generates and stores personalized recommendations
+ * using the Python ML service.
  */
 
 const Submission = require("../models/Submission");
@@ -12,39 +11,91 @@ const Problem = require("../models/Problem");
 const Recommendation = require("../models/Recommendation");
 const mlClient = require("../utils/mlClient");
 
-/** GET /api/recommendations?topN=5&topic=Graphs */
+/**
+ * Fetch a user's submissions and the available problem catalog.
+ */
+async function getUserData(userId) {
+  const [submissions, problems] = await Promise.all([
+    Submission.find({ userId }).lean(),
+    Problem.find({}).lean(),
+  ]);
+
+  console.log("\n===== CODEPATH BACKEND DEBUG =====");
+  console.log("User ID:", String(userId));
+  console.log("Submissions found:", submissions.length);
+  console.log("Problems found:", problems.length);
+
+  if (problems.length > 0) {
+    console.log("First problem:", {
+      id: problems[0]._id,
+      title: problems[0].title,
+      topic: problems[0].topic,
+      difficulty: problems[0].difficulty,
+    });
+  } else {
+    console.log(
+      "WARNING: The Problems collection returned zero documents."
+    );
+  }
+
+  console.log("==================================\n");
+
+  return { submissions, problems };
+}
+
+/**
+ * GET /api/recommendations?topN=5&topic=Graphs
+ */
 async function getRecommendations(req, res, next) {
   try {
-    const topN = Number(req.query.topN) || 5;
-    const targetTopic = req.query.topic || null;
+    const topN = Math.max(
+      1,
+      Math.min(Number(req.query.topN) || 5, 50)
+    );
 
-    const [submissions, problems] = await Promise.all([
-      Submission.find({ userId: req.user.id }).lean(),
-      Problem.find().lean(),
-    ]);
+    const targetTopic = req.query.topic || null;
+    const userId = req.user.id;
+
+    const { submissions, problems } = await getUserData(userId);
 
     if (submissions.length === 0) {
       return res.json({
         recommendations: [],
-        message: "Add or upload some coding history first so we can personalize recommendations.",
+        skillLevels: {},
+        message:
+          "Add or upload some coding history first so we can personalize recommendations.",
       });
     }
 
-    const { recommendations, skill_levels: skillLevels } = await mlClient.getRecommendations(
-      submissions, problems, topN, targetTopic
+    if (problems.length === 0) {
+      return res.status(200).json({
+        recommendations: [],
+        skillLevels: {},
+        message:
+          "The problem catalog is empty. Add problems to the MongoDB Problems collection.",
+      });
+    }
+
+    const result = await mlClient.getRecommendations(
+      submissions,
+      problems,
+      topN,
+      targetTopic
     );
 
-    // Persist this batch (Recommendations collection) -- dynamically
-    // generated every call, never hardcoded.
+    const recommendations = result.recommendations || [];
+    const skillLevels = result.skill_levels || {};
+
     const batchType = targetTopic ? "topic" : "general";
+
     const docs = recommendations.map((r) => ({
-      userId: req.user.id,
+      userId,
       problemId: r.problem_id,
       title: r.title,
       topic: r.topic,
       difficulty: r.difficulty,
       reason: r.reason,
-      link: r.link,
+      link: r.link || r.url || "",
       previousAttempts: r.previous_attempts,
       isRetry: r.is_retry,
       borrowedFromTopic: r.borrowed_from_topic,
@@ -56,58 +107,98 @@ async function getRecommendations(req, res, next) {
       await Recommendation.insertMany(docs);
     }
 
-    res.json({ recommendations, skillLevels });
+    return res.json({
+      recommendations,
+      skillLevels,
+      message: recommendations.length
+        ? "Recommendations generated successfully."
+        : "No eligible recommendations were generated.",
+    });
   } catch (err) {
+    console.error("Error generating recommendations:", err);
     next(err);
   }
 }
 
-/** GET /api/recommendations/daily */
+/**
+ * GET /api/recommendations/daily
+ */
 async function getDailyPractice(req, res, next) {
   try {
-    const [submissions, problems] = await Promise.all([
-      Submission.find({ userId: req.user.id }).lean(),
-      Problem.find().lean(),
-    ]);
+    const userId = req.user.id;
+    const { submissions, problems } = await getUserData(userId);
 
     if (submissions.length === 0) {
-      return res.json({ dailyPractice: [] });
+      return res.json({
+        dailyPractice: [],
+        message: "No submission history found.",
+      });
     }
 
-    const { daily_practice: dailyPractice } = await mlClient.getDailyPractice(submissions, problems);
+    if (problems.length === 0) {
+      return res.json({
+        dailyPractice: [],
+        message: "The problem catalog is empty.",
+      });
+    }
+
+    const result = await mlClient.getDailyPractice(
+      submissions,
+      problems
+    );
+
+    const dailyPractice = result.daily_practice || [];
 
     const docs = dailyPractice.map((r) => ({
-      userId: req.user.id,
+      userId,
       problemId: r.problem_id,
       title: r.title,
       topic: r.topic,
       difficulty: r.difficulty,
       reason: r.reason,
-      link: r.link,
+      link: r.link || r.url || "",
       batchType: "daily",
       generatedAt: new Date(),
     }));
+
     if (docs.length > 0) {
       await Recommendation.insertMany(docs);
     }
 
-    res.json({ dailyPractice });
+    return res.json({
+      dailyPractice,
+      message: dailyPractice.length
+        ? "Daily practice generated successfully."
+        : "No daily practice problems were generated.",
+    });
   } catch (err) {
+    console.error("Error generating daily practice:", err);
     next(err);
   }
 }
 
-/** GET /api/recommendations/history - previously generated recommendation batches */
+/**
+ * GET /api/recommendations/history
+ */
 async function getRecommendationHistory(req, res, next) {
   try {
-    const history = await Recommendation.find({ userId: req.user.id })
+    const history = await Recommendation.find({
+      userId: req.user.id,
+    })
       .sort({ generatedAt: -1 })
       .limit(50)
       .lean();
-    res.json({ history });
+
+    return res.json({ history });
   } catch (err) {
+    console.error("Error fetching recommendation history:", err);
     next(err);
   }
 }
 
-module.exports = { getRecommendations, getDailyPractice, getRecommendationHistory };
+module.exports = {
+  getRecommendations,
+  getDailyPractice,
+  getRecommendationHistory,
+};
+

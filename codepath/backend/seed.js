@@ -1,86 +1,90 @@
+
 /**
  * seed.js
  * -------
- * Seeds MongoDB with:
- *   1. The sample problem catalog (data/sampleProblems.js)
- *   2. A demo user (demo@codepath.com / password123) with the sample
- *      coding history (data/sample_history.csv) already imported, so
- *      graders/reviewers can log in and see a populated dashboard
- *      immediately without manually uploading a CSV first.
+ * Safely populates the CodePath problem catalog.
  *
- * Run: npm run seed   (make sure MongoDB is running and .env is configured)
+ * Features:
+ * 1. Inserts missing sample problems.
+ * 2. Updates existing problems using problemId.
+ * 3. Preserves existing users and submissions.
+ * 4. Does not delete performance or recommendation records.
+ *
+ * Run:
+ *   node seed.js
+ *
+ * Make sure MongoDB is configured in your backend .env file.
  */
 
 require("dotenv").config();
-const fs = require("fs");
-const path = require("path");
+
 const mongoose = require("mongoose");
 const connectDB = require("./config/db");
 
-const User = require("./models/User");
 const Problem = require("./models/Problem");
-const Submission = require("./models/Submission");
-const Performance = require("./models/Performance");
-const Recommendation = require("./models/Recommendation");
-
 const sampleProblems = require("./data/sampleProblems");
-const { parseCodingHistoryCsv } = require("./utils/csvParser");
-const { recomputePerformance } = require("./controllers/performanceController");
-const { updateStreak } = require("./controllers/streakHelper");
-
-const DEMO_EMAIL = "demo@codepath.com";
-const DEMO_PASSWORD = "password123";
 
 async function seed() {
-  await connectDB();
+  try {
+    // Connect to MongoDB
+    await connectDB();
 
-  console.log("Clearing existing demo data...");
-  await Problem.deleteMany({});
-  await Submission.deleteMany({ userId: { $exists: true } }); // full reset for demo purposes
-  await Performance.deleteMany({});
-  await Recommendation.deleteMany({});
-  await User.deleteOne({ email: DEMO_EMAIL });
+    console.log("\n==================================");
+    console.log("   CODEPATH PROBLEM CATALOG SEED");
+    console.log("==================================\n");
 
-  console.log(`Seeding ${sampleProblems.length} problems...`);
-  await Problem.insertMany(sampleProblems);
+    console.log(
+      `Sample problems available: ${sampleProblems.length}`
+    );
 
-  console.log("Creating demo user...");
-  const demoUser = await User.create({
-    name: "Demo Student",
-    email: DEMO_EMAIL,
-    password: DEMO_PASSWORD,
-  });
+    let added = 0;
+    let updated = 0;
+    let unchanged = 0;
 
-  console.log("Importing sample coding history for demo user...");
-  const csvPath = path.join(__dirname, "data", "sample_history.csv");
-  const csvBuffer = fs.readFileSync(csvPath);
-  const { valid, errors } = parseCodingHistoryCsv(csvBuffer);
+    // Insert missing problems or update existing ones.
+    for (const problem of sampleProblems) {
+      const result = await Problem.updateOne(
+        { problemId: problem.problemId },
+        { $set: problem },
+        { upsert: true }
+      );
 
-  if (errors.length > 0) {
-    console.warn("Some sample rows had errors:", errors);
+      if (result.upsertedCount > 0) {
+        added++;
+      } else if (result.modifiedCount > 0) {
+        updated++;
+      } else {
+        unchanged++;
+      }
+    }
+
+    // Verify the final problem count.
+    const totalProblems = await Problem.countDocuments();
+
+    console.log("\nProblem catalog updated successfully!");
+    console.log("----------------------------------");
+    console.log("New problems added:", added);
+    console.log("Existing problems updated:", updated);
+    console.log("Unchanged problems:", unchanged);
+    console.log("Total problems in MongoDB:", totalProblems);
+    console.log("----------------------------------");
+
+    console.log(
+      "\nExisting users and submissions were not deleted."
+    );
+    console.log("You can now test CodePath recommendations.");
+
+  } catch (error) {
+    console.error("\nProblem catalog seeding failed:");
+    console.error(error.message);
+    process.exitCode = 1;
+
+  } finally {
+    // Close the MongoDB connection.
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
   }
-
-  for (const row of valid) {
-    const submission = await Submission.create({ ...row, userId: demoUser._id });
-    await updateStreak(demoUser._id, submission.date, submission.status);
-  }
-
-  console.log("Computing initial performance + skill levels via ML service...");
-  await recomputePerformance(demoUser._id);
-
-  console.log("\nSeed complete!");
-  console.log("-----------------------------------------");
-  console.log(`Demo login  ->  email: ${DEMO_EMAIL}  password: ${DEMO_PASSWORD}`);
-  console.log(`Problems seeded: ${sampleProblems.length}`);
-  console.log(`Submissions imported: ${valid.length}`);
-  console.log("-----------------------------------------");
-
-  await mongoose.disconnect();
-  process.exit(0);
 }
 
-seed().catch((err) => {
-  console.error("Seeding failed:", err.message);
-  console.error("Make sure MongoDB is running and the Python ML service (app.py) is running on ML_SERVICE_URL before seeding.");
-  process.exit(1);
-});
+seed();
