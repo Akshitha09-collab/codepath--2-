@@ -1,9 +1,3 @@
-/**
- * server.js
- * ---------
- * CodePath backend entry point. Wires together:
- * MongoDB connection -> Express middleware -> Routes -> Error handler
- */
 
 const dns = require("dns");
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
@@ -12,6 +6,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+
 const connectDB = require("./config/db");
 const errorHandler = require("./middleware/errorHandler");
 
@@ -45,27 +40,20 @@ app.use("/api/codeforces", codeforcesRoutes);
 
 app.get("/api/dashboard", requireAuth, getDashboard);
 
-// Health check: verifies whether the ML service is reachable
+// Health check
 app.get("/api/health", async (req, res) => {
   let mlStatus = "unreachable";
 
   try {
-    const result = await mlClient.checkHealth();
+    const mlHealth = await mlClient.checkHealth();
 
-    console.log("ML health check successful:", result);
-    mlStatus = "ok";
-  } catch (err) {
-    // Log the actual error to help troubleshoot the connection
-    console.error("ML health check failed:", err.message);
-
-    if (err.response) {
-      console.error("ML service HTTP status:", err.response.status);
-      console.error("ML service response:", err.response.data);
-    } else if (err.code) {
-      console.error("ML connection error code:", err.code);
+    if (mlHealth && mlHealth.status === "ok") {
+      mlStatus = "ok";
+    } else {
+      mlStatus = "unreachable";
     }
-
-    mlStatus = "unreachable";
+  } catch (err) {
+    console.error("ML health check failed:", err.message);
   }
 
   res.json({
@@ -78,11 +66,11 @@ app.get("/api/health", async (req, res) => {
 // Handle unknown routes
 app.use((req, res) => {
   res.status(404).json({
-    message: Route not found: ${req.method} ${req.originalUrl},
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
   });
 });
 
-// Error handler
+// Error-handling middleware
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
@@ -92,7 +80,7 @@ async function start() {
     await connectDB();
 
     app.listen(PORT, () => {
-      console.log(CodePath backend running on port ${PORT});
+      console.log(`CodePath backend running on port ${PORT}`);
     });
   } catch (err) {
     console.error("Failed to start CodePath backend:", err.message);
