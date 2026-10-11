@@ -1,24 +1,28 @@
+
 /**
  * utils/mlClient.js
  * -----------------
- * The ONLY place in the backend that talks to the Python ML microservice.
- * Keeping this centralized means every controller uses the same base URL,
- * timeout, and error-handling behaviour.
+ * Centralized connection to the Python ML microservice.
  *
- * Architecture reminder:
- *   Node/Express  --REST-->  Python ML Service (Flask)  --> RandomForest + recommender
+ * Node.js Backend --> REST API --> Python Flask ML Service
  */
 
 const axios = require("axios");
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:8000";
+const ML_SERVICE_URL =
+  process.env.ML_SERVICE_URL || "http://localhost:8000";
+
+console.log("ML service URL configured:", ML_SERVICE_URL);
 
 const client = axios.create({
   baseURL: ML_SERVICE_URL,
-  timeout: 10000,
+  timeout: 20000,
 });
 
-/** Format a Mongo Submission doc the way the ML service expects. */
+/**
+ * Format a MongoDB Submission document
+ * for the ML service.
+ */
 function toMlSubmission(sub) {
   return {
     problem_id: sub.problemId,
@@ -28,11 +32,17 @@ function toMlSubmission(sub) {
     status: sub.status,
     attempts: sub.attempts,
     time_taken: sub.timeTaken,
-    date: sub.date instanceof Date ? sub.date.toISOString().slice(0, 10) : sub.date,
+    date:
+      sub.date instanceof Date
+        ? sub.date.toISOString().slice(0, 10)
+        : sub.date,
   };
 }
 
-/** Format a Mongo Problem doc the way the ML service expects. */
+/**
+ * Format a MongoDB Problem document
+ * for the ML service.
+ */
 function toMlProblem(p) {
   return {
     problem_id: p.problemId,
@@ -44,41 +54,79 @@ function toMlProblem(p) {
   };
 }
 
+/**
+ * Analyze user performance.
+ */
 async function analyzePerformance(submissions) {
   const { data } = await client.post("/analyze", {
     submissions: submissions.map(toMlSubmission),
   });
-  return data; // { topics: { topic: {...stats} } }
+
+  return data;
 }
 
+/**
+ * Predict skill levels.
+ */
 async function predictSkillLevels(submissions) {
   const { data } = await client.post("/predict", {
     submissions: submissions.map(toMlSubmission),
   });
-  return data; // { skill_levels: {...}, model_trained: bool }
+
+  return data;
 }
 
-async function getRecommendations(submissions, problems, topN = 5, targetTopic = null) {
+/**
+ * Get personalized problem recommendations.
+ */
+async function getRecommendations(
+  submissions,
+  problems,
+  topN = 5,
+  targetTopic = null
+) {
   const { data } = await client.post("/recommend", {
     submissions: submissions.map(toMlSubmission),
     problems: problems.map(toMlProblem),
     top_n: topN,
     target_topic: targetTopic,
   });
-  return data; // { recommendations: [...], skill_levels: {...} }
+
+  return data;
 }
 
+/**
+ * Get the daily practice plan.
+ */
 async function getDailyPractice(submissions, problems) {
   const { data } = await client.post("/daily-practice", {
     submissions: submissions.map(toMlSubmission),
     problems: problems.map(toMlProblem),
   });
-  return data; // { daily_practice: [...] }
+
+  return data;
 }
 
+/**
+ * Check ML service health and log connection errors.
+ */
 async function checkHealth() {
-  const { data } = await client.get("/health");
-  return data;
+  try {
+    const { data } = await client.get("/health");
+
+    console.log("ML health check succeeded:", data);
+
+    return data;
+  } catch (err) {
+    console.error("ML connection error:", {
+      message: err.message,
+      code: err.code,
+      status: err.response?.status,
+      response: err.response?.data,
+    });
+
+    throw err;
+  }
 }
 
 module.exports = {
